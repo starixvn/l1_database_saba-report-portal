@@ -1,0 +1,55 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+
+SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+
+USE	SabaDB;
+GO
+DECLARE	@sch	NVARCHAR(128)		= N'logger'
+	,	@label	NVARCHAR(20)		= N'Schema'
+	,	@now	DATETIMEOFFSET(0)
+	,	@time	NVARCHAR(20)
+	,	@msg	NVARCHAR(MAX)
+	,	@err	NVARCHAR(MAX)
+	;
+
+
+IF	SCHEMA_ID(@sch) IS NULL
+BEGIN TRY;
+	SELECT	@msg	= CONCAT(N'CREATE SCHEMA [', @sch ,N'] AUTHORIZATION dbo');
+	EXECUTE	sys.sp_executesql @msg;
+
+	SELECT	@now	= SYSDATETIMEOFFSET()
+		,	@time	= CONVERT(NVARCHAR(20), @now, 127)
+		,	@msg	= CONCAT(N'Successfully created schema [', @sch, N']')
+		;
+	RAISERROR(N'\
+%s I  [%s]  %s', 0, 0, @time, @label, @msg);
+END TRY BEGIN CATCH
+	SELECT	@now	= SYSDATETIMEOFFSET()
+		,	@time	= CONVERT(NVARCHAR(20), @now, 127)
+		,	@msg	= CONCAT(N'Failed to create schema [', @sch, N']')
+		,	@err	= CONCAT_WS(N' '
+						, CONCAT(N'[', ERROR_SEVERITY(), N']')
+						, CONCAT(N'ERR-', ERROR_NUMBER())
+						, CONCAT(N'[Adhoc]^', ERROR_STATE())
+						, CONCAT(N'@L', ERROR_LINE())
+						, N'-', ERROR_MESSAGE()
+					)
+		;
+	RAISERROR(N'\
+%s E  [%s]  %s
+                        %s', 0, 0, @time, @label, @msg, @err);
+END CATCH;
+ELSE
+BEGIN;
+	SELECT	@now	= SYSDATETIMEOFFSET()
+		,	@time	= CONVERT(NVARCHAR(20), @now, 127)
+		,	@msg	= CONCAT(N'Schema [', @sch, N'] has already existed')
+		;
+	RAISERROR(N'\
+%s I  [%s]  %s', 0, 0, @time, @label, @msg);
+END;
+GO
