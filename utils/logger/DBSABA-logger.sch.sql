@@ -16,8 +16,9 @@ DECLARE	@sch	NVARCHAR(128)		= N'logger'
 	;
 
 
-IF	SCHEMA_ID(@sch) IS NULL
 BEGIN TRY;
+IF	SCHEMA_ID(@sch) IS NULL
+BEGIN
 	SELECT	@msg	= CONCAT(N'CREATE SCHEMA [', @sch ,N'] AUTHORIZATION dbo');
 	EXECUTE	sys.sp_executesql @msg;
 
@@ -27,22 +28,7 @@ BEGIN TRY;
 		;
 	RAISERROR(N'\
 %s I  [%s]  %s', 0, 0, @time, @label, @msg);
-END TRY BEGIN CATCH
-	SELECT	@now	= SYSDATETIMEOFFSET()
-		,	@time	= CONVERT(NVARCHAR(20), @now, 127)
-		,	@msg	= CONCAT(N'Failed to create schema [', @sch, N']')
-		,	@err	= CONCAT_WS(N' '
-						, CONCAT(N'[', ERROR_SEVERITY(), N']')
-						, CONCAT(N'ERR-', ERROR_NUMBER())
-						, CONCAT(N'[Adhoc]^', ERROR_STATE())
-						, CONCAT(N'@L', ERROR_LINE())
-						, N'-', ERROR_MESSAGE()
-					)
-		;
-	RAISERROR(N'\
-%s E  [%s]  %s
-                        %s', 0, 0, @time, @label, @msg, @err);
-END CATCH;
+END;
 ELSE
 BEGIN;
 	SELECT	@now	= SYSDATETIMEOFFSET()
@@ -52,4 +38,24 @@ BEGIN;
 	RAISERROR(N'\
 %s I  [%s]  %s', 0, 0, @time, @label, @msg);
 END;
+
+SELECT	@msg	= CONCAT(N'GRANT EXECUTE ON SCHEMA::[', @sch ,N'] TO PUBLIC;');
+EXECUTE	sys.sp_executesql @msg;
+
+END TRY BEGIN CATCH
+	SELECT	@now	= SYSDATETIMEOFFSET()
+		,	@time	= CONVERT(NVARCHAR(20), @now, 127)
+		,	@msg	= CONCAT(N'Failed to create schema [', @sch, N']')
+		,	@err	= CONCAT_WS(N' '
+						, CONCAT(N'[', ERROR_SEVERITY(), N']')
+						, CONCAT(N'ERR-', ERROR_NUMBER())
+						, CONCAT(N'[Query]^', ERROR_STATE())
+						, CONCAT(N'@L', ERROR_LINE())
+						, N'-', ERROR_MESSAGE()
+					)
+		;
+	RAISERROR(N'\
+%s E  [%s]  %s
+                        %s', 0, 0, @time, @label, @msg, @err);
+END CATCH;
 GO
